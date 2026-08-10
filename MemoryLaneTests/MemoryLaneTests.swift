@@ -10,47 +10,40 @@ import Testing
 @testable import MemoryLane
 
 struct MemoryLaneTests {
-    @Test func normalizesTags() async throws {
-        let tags = Memory.normalizedTags(from: " Family, #Summer\nfamily,firsts, ")
+    @Test func yearPromptIncludesCorrectYear() async throws {
+        let date = Date(timeIntervalSince1970: 1_577_836_800)
+        let prompt = MemoryQuizFactory.yearPrompt(for: date, calendar: .gregorianUTC)
 
-        #expect(tags == ["family", "summer", "firsts"])
+        #expect(prompt.question == "What year was this?")
+        #expect(prompt.answer == "2020")
+        #expect(prompt.options.contains("2020"))
+        #expect(prompt.options.count == 4)
     }
 
-    @Test func trimsNewMemoryFields() async throws {
-        let memory = Memory(
-            title: "  Beach morning  ",
-            story: "  The tide was quiet.  ",
-            locationName: "  Ocean City  ",
-            mood: .quiet,
-            tags: ["#Summer", "family"]
-        )
+    @Test func monthPromptIncludesCorrectMonth() async throws {
+        let date = Date(timeIntervalSince1970: 1_625_097_600)
+        let prompt = MemoryQuizFactory.monthPrompt(for: date, calendar: .gregorianUTC)
 
-        #expect(memory.title == "Beach morning")
-        #expect(memory.story == "The tide was quiet.")
-        #expect(memory.locationName == "Ocean City")
-        #expect(memory.mood == .quiet)
-        #expect(memory.tags == ["summer", "family"])
-        #expect(memory.hasLocation)
+        #expect(prompt.question == "Which month was it?")
+        #expect(prompt.answer == "July")
+        #expect(prompt.options.contains("July"))
+        #expect(prompt.options.count == 4)
     }
 
-    @Test func updateRefreshesMemoryFields() async throws {
-        let capturedAt = Date(timeIntervalSince1970: 100)
-        let memory = Memory(title: "Old", story: "Old story")
+    @Test func placePromptUsesKnownLocationAsAnswer() async throws {
+        let prompt = MemoryQuizFactory.placePrompt(placeName: "Ocean City, MD")
 
-        memory.update(
-            title: "  First bike ride  ",
-            story: "  Wobbly, fast, unforgettable.  ",
-            capturedAt: capturedAt,
-            locationName: "  Boardwalk  ",
-            mood: .joyful,
-            tags: ["firsts", "#Family", "firsts"]
-        )
+        #expect(prompt.question == "Where was this?")
+        #expect(prompt.answer == "Ocean City, MD")
+        #expect(prompt.options.contains("Ocean City, MD"))
+        #expect(prompt.options.count == 4)
+    }
+}
 
-        #expect(memory.title == "First bike ride")
-        #expect(memory.story == "Wobbly, fast, unforgettable.")
-        #expect(memory.capturedAt == capturedAt)
-        #expect(memory.locationName == "Boardwalk")
-        #expect(memory.mood == .joyful)
-        #expect(memory.tags == ["firsts", "family"])
+private extension Calendar {
+    static var gregorianUTC: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
     }
 }
