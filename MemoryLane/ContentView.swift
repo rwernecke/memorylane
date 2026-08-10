@@ -420,11 +420,12 @@ private struct AnswerOptionButton: View {
     }
 
     private var isCorrectAnswer: Bool {
-        option == prompt.answer || prompt.kind == .feeling
+        option == prompt.answer
     }
 
     private var showsCorrectIcon: Bool {
-        feedback != nil && isCorrectAnswer
+        guard feedback != nil else { return false }
+        return prompt.acceptsAnyAnswer ? isSelected : isCorrectAnswer
     }
 
     private var showsWrongIcon: Bool {
@@ -592,7 +593,7 @@ private final class PhotoDeckViewModel: ObservableObject {
         guard feedback == nil else { return }
         selectedAnswer = answer
 
-        let isCorrect = prompt.kind == .feeling || answer == prompt.answer
+        let isCorrect = prompt.acceptsAnyAnswer || answer == prompt.answer
         if isCorrect {
             streak += 1
             feedback = QuizFeedback(isCorrect: true, message: prompt.confirmation)
