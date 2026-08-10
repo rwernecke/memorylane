@@ -57,7 +57,7 @@ private struct PhotoMemoryLaneView: View {
                         )
                     } else {
                         FinishedDeckView(
-                            reviewedCount: deck.reviewedCount,
+                            reviewedCards: deck.reviewedCards,
                             reloadAction: { Task { await deck.loadDeck() } }
                         )
                     }
@@ -193,6 +193,12 @@ private struct SwipeQuizView: View {
             .padding(.bottom, 12)
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         }
+        .task(id: feedback?.shouldAutoAdvance) {
+            guard feedback?.shouldAutoAdvance == true else { return }
+            try? await Task.sleep(nanoseconds: 1_150_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { nextPhoto() }
+        }
     }
 
     private func photoHeight(for availableHeight: CGFloat) -> CGFloat {
@@ -236,6 +242,13 @@ private struct SwipeQuizView: View {
                 startPoint: .center,
                 endPoint: .bottom
             )
+
+            if let feedback, feedback.isCorrect {
+                CorrectBurstView(title: feedback.title)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .transition(.scale(scale: 0.84).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
 
             Label("Swipe", systemImage: "hand.draw.fill")
                 .font(.caption.weight(.bold))
@@ -310,13 +323,17 @@ private struct SwipeQuizView: View {
             if let feedback {
                 FeedbackBanner(feedback: feedback)
 
-                Button(action: nextPhoto) {
-                    Label("Next", systemImage: "arrow.right.circle.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 50)
+                if feedback.shouldAutoAdvance {
+                    AutoAdvanceCue()
+                } else {
+                    Button(action: nextPhoto) {
+                        Label("Next", systemImage: "arrow.right.circle.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.memoryAccent)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.memoryAccent)
             }
         }
         .padding(14)
@@ -390,10 +407,12 @@ private struct AnswerOptionButton: View {
 
                 if showsCorrectIcon {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.memorySuccess)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
                 } else if showsWrongIcon {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Color.memoryError)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
                 }
             }
             .padding(.horizontal, 10)
@@ -408,8 +427,11 @@ private struct AnswerOptionButton: View {
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1.5)
+                    .stroke(borderColor, lineWidth: 1.8)
             }
+            .shadow(color: glowColor, radius: showsCorrectIcon || showsWrongIcon ? 12 : 0, x: 0, y: 5)
+            .scaleEffect(showsCorrectIcon ? 1.04 : 1.0)
+            .animation(.spring(response: 0.30, dampingFraction: 0.68), value: feedback?.isCorrect)
         }
         .buttonStyle(.plain)
         .disabled(feedback != nil)
@@ -433,27 +455,31 @@ private struct AnswerOptionButton: View {
     }
 
     private var foregroundColor: Color {
-        if showsWrongIcon { return Color.memoryError }
-        if showsCorrectIcon { return Color.memorySuccess }
+        if showsWrongIcon || showsCorrectIcon { return .white }
         return Color.memoryInk
     }
 
     private var backgroundColors: [Color] {
         if showsWrongIcon {
-            return [Color.memoryError.opacity(0.16), Color.memoryHotPink.opacity(0.10)]
+            return [Color.memoryError, Color.memoryHotPink]
         }
 
         if showsCorrectIcon {
-            return [Color.memorySuccess.opacity(0.18), Color.memoryMint.opacity(0.28)]
+            return [Color.memorySuccess, Color.memoryTeal]
         }
 
         return [Color.white.opacity(0.98), Color.memoryPeach.opacity(0.94)]
     }
 
     private var borderColor: Color {
-        if showsWrongIcon { return Color.memoryError.opacity(0.78) }
-        if showsCorrectIcon { return Color.memorySuccess.opacity(0.78) }
+        if showsWrongIcon || showsCorrectIcon { return Color.white.opacity(0.86) }
         return Color.memoryHotPink.opacity(0.18)
+    }
+
+    private var glowColor: Color {
+        if showsCorrectIcon { return Color.memorySuccess.opacity(0.36) }
+        if showsWrongIcon { return Color.memoryError.opacity(0.26) }
+        return .clear
     }
 }
 
@@ -461,49 +487,93 @@ private struct FeedbackBanner: View {
     let feedback: QuizFeedback
 
     var body: some View {
-        Label(feedback.message, systemImage: feedback.isCorrect ? "checkmark.seal.fill" : "sparkles")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(feedback.isCorrect ? Color.memorySuccess : Color.memoryAccent)
-            .lineLimit(2)
-            .minimumScaleFactor(0.78)
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                LinearGradient(
-                    colors: feedback.isCorrect
-                        ? [Color.memorySuccess.opacity(0.14), Color.memoryMint.opacity(0.22)]
-                        : [Color.memoryHotPink.opacity(0.14), Color.memorySun.opacity(0.18)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                ),
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-            )
+        VStack(alignment: .leading, spacing: 5) {
+            Label(feedback.title, systemImage: feedback.isCorrect ? "checkmark.seal.fill" : "sparkles")
+                .font(.headline.weight(.heavy))
+
+            Text(feedback.message)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+        }
+        .foregroundStyle(feedback.isCorrect ? Color.memorySuccess : Color.memoryAccent)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: feedback.isCorrect
+                    ? [Color.memorySuccess.opacity(0.18), Color.memoryMint.opacity(0.28)]
+                    : [Color.memoryHotPink.opacity(0.14), Color.memorySun.opacity(0.18)],
+                startPoint: .leading,
+                endPoint: .trailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+    }
+}
+
+private struct CorrectBurstView: View {
+    let title: String
+    @State private var isVisible = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 54, weight: .heavy))
+
+            Text(title)
+                .font(.largeTitle.weight(.heavy))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 18)
+        .background(
+            LinearGradient(
+                colors: [Color.memorySuccess, Color.memoryTeal, Color.memoryMint.opacity(0.92)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.75), lineWidth: 1.4)
+        }
+        .shadow(color: Color.memorySuccess.opacity(0.46), radius: 28, x: 0, y: 12)
+        .scaleEffect(isVisible ? 1 : 0.82)
+        .opacity(isVisible ? 1 : 0)
+        .onAppear {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.62)) {
+                isVisible = true
+            }
+        }
+    }
+}
+
+private struct AutoAdvanceCue: View {
+    var body: some View {
+        Label("Next memory coming up", systemImage: "arrow.right.circle.fill")
+            .font(.headline.weight(.bold))
+            .foregroundStyle(Color.memorySuccess)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(Color.memorySuccess.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
 private struct FinishedDeckView: View {
-    let reviewedCount: Int
+    let reviewedCards: [MemoryPhotoCard]
     let reloadAction: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
-            Image(systemName: reviewedCount == 0 ? "person.crop.rectangle.stack" : "checkmark.seal.fill")
-                .font(.system(size: 54, weight: .semibold))
-                .foregroundStyle(Color.memoryAccent)
-
-            Text(reviewedCount == 0 ? "No memory-rich photos found" : "That was a good lane")
-                .font(.largeTitle.weight(.bold))
-                .foregroundStyle(Color.memoryInk)
-                .multilineTextAlignment(.center)
-
-            Text(reviewedCount == 0 ? "Choose more photos or try again after your library finishes syncing." : "Take another pass with a fresh set of faces.")
-                .font(.title3.weight(.medium))
-                .foregroundStyle(Color.memorySubtleInk)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: 14) {
+            if reviewedCards.isEmpty {
+                emptyState
+            } else {
+                recapState
+            }
 
             Button(action: reloadAction) {
-                Label("New Deck", systemImage: "shuffle")
+                Label(reviewedCards.isEmpty ? "New Deck" : "Review More Memories", systemImage: "shuffle")
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 58)
             }
@@ -511,6 +581,113 @@ private struct FinishedDeckView: View {
             .tint(Color.memoryAccent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "person.crop.rectangle.stack")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(Color.memoryAccent)
+
+            Text("No memory-rich photos found")
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(Color.memoryInk)
+                .multilineTextAlignment(.center)
+
+            Text("Choose more photos or try again after your library finishes syncing.")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(Color.memorySubtleInk)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var recapState: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 52, weight: .semibold))
+                    .foregroundStyle(Color.memoryAccent)
+
+                VStack(spacing: 7) {
+                    Text("You reviewed \(reviewedCards.count) memories")
+                        .font(.largeTitle.weight(.bold))
+                        .foregroundStyle(Color.memoryInk)
+                        .multilineTextAlignment(.center)
+
+                    Text("These are the pictures you just revisited.")
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(Color.memorySubtleInk)
+                        .multilineTextAlignment(.center)
+                }
+
+                ReviewedPhotoGrid(cards: reviewedCards)
+            }
+            .padding(.vertical, 10)
+        }
+    }
+}
+
+private struct ReviewedPhotoGrid: View {
+    let cards: [MemoryPhotoCard]
+    private let columns = [
+        GridItem(.flexible(), spacing: 9),
+        GridItem(.flexible(), spacing: 9),
+        GridItem(.flexible(), spacing: 9)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 9) {
+            ForEach(cards) { card in
+                ReviewedPhotoTile(card: card)
+            }
+        }
+        .padding(10)
+        .background(Color.memoryCardBackground.opacity(0.84), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct ReviewedPhotoTile: View {
+    let card: MemoryPhotoCard
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            Image(uiImage: card.image)
+                .resizable()
+                .scaledToFill()
+                .frame(height: 104)
+                .frame(maxWidth: .infinity)
+                .clipped()
+
+            if let caption {
+                Text(caption)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(.black.opacity(0.34), in: Capsule())
+                    .padding(5)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.44), lineWidth: 1)
+        }
+    }
+
+    private var caption: String? {
+        if let placeName = card.placeName, !placeName.isEmpty {
+            return placeName
+        }
+
+        if let creationDate = card.creationDate {
+            return creationDate.formatted(.dateTime.year())
+        }
+
+        return nil
     }
 }
 
@@ -522,14 +699,17 @@ private struct MemoryPhotoCard: Identifiable {
 }
 
 private struct QuizFeedback {
+    let title: String
     let isCorrect: Bool
     let message: String
+    let shouldAutoAdvance: Bool
 }
 
 @MainActor
 private final class PhotoDeckViewModel: ObservableObject {
     @Published var authorizationStatus: PHAuthorizationStatus = .notDetermined
     @Published var cards: [MemoryPhotoCard] = []
+    @Published var reviewedCards: [MemoryPhotoCard] = []
     @Published var prompt = MemoryQuizFactory.feelingPrompt()
     @Published var selectedAnswer: String?
     @Published var feedback: QuizFeedback?
@@ -544,7 +724,7 @@ private final class PhotoDeckViewModel: ObservableObject {
     func refreshAuthorizationStatus() async {
         authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
 
-        if canReadLibrary, cards.isEmpty, !isLoading {
+        if canReadLibrary, cards.isEmpty, reviewedCards.isEmpty, !isLoading {
             await loadDeck()
         }
     }
@@ -562,6 +742,8 @@ private final class PhotoDeckViewModel: ObservableObject {
         isLoading = true
         selectedAnswer = nil
         feedback = nil
+        reviewedCards = []
+        reviewedCount = 0
         streak = 0
 
         let assets = fetchPhotoAssets().shuffled()
@@ -596,10 +778,21 @@ private final class PhotoDeckViewModel: ObservableObject {
         let isCorrect = prompt.acceptsAnyAnswer || answer == prompt.answer
         if isCorrect {
             streak += 1
-            feedback = QuizFeedback(isCorrect: true, message: prompt.confirmation)
+            let title = prompt.acceptsAnyAnswer ? "Nice choice" : "Correct!"
+            feedback = QuizFeedback(
+                title: title,
+                isCorrect: true,
+                message: prompt.confirmation,
+                shouldAutoAdvance: true
+            )
         } else {
             streak = 0
-            feedback = QuizFeedback(isCorrect: false, message: "Close. \(prompt.confirmation)")
+            feedback = QuizFeedback(
+                title: "Almost",
+                isCorrect: false,
+                message: "Close. \(prompt.confirmation)",
+                shouldAutoAdvance: false
+            )
         }
     }
 
@@ -616,9 +809,10 @@ private final class PhotoDeckViewModel: ObservableObject {
     }
 
     private func advanceDeck(keepsStreak: Bool) {
-        if !cards.isEmpty {
+        if let card = cards.first {
+            reviewedCards.append(card)
             cards.removeFirst()
-            reviewedCount += 1
+            reviewedCount = reviewedCards.count
         }
 
         if !keepsStreak {
@@ -845,6 +1039,10 @@ private extension Color {
 
     static var memoryMint: Color {
         Color(red: 0.71, green: 0.98, blue: 0.82)
+    }
+
+    static var memoryTeal: Color {
+        Color(red: 0.00, green: 0.68, blue: 0.54)
     }
 
     static var memoryInk: Color {
