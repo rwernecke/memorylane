@@ -43,6 +43,7 @@ struct MemoryLaneTests {
 private extension Calendar {
     static var gregorianUTC: Calendar {
         var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         return calendar
     }
