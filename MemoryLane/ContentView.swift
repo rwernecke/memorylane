@@ -10,6 +10,7 @@ import SwiftUI
 #if os(iOS)
 import Combine
 import CoreLocation
+import ImageIO
 import Photos
 import UIKit
 import Vision
