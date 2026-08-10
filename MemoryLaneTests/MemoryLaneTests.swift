@@ -30,12 +30,30 @@ struct MemoryLaneTests {
         #expect(prompt.options.count == 4)
     }
 
-    @Test func placePromptUsesKnownLocationAsAnswer() async throws {
-        let prompt = MemoryQuizFactory.placePrompt(placeName: "Ocean City, MD")
+    @Test func seasonPromptIncludesCorrectSeason() async throws {
+        let date = Date(timeIntervalSince1970: 1_625_097_600)
+        let prompt = MemoryQuizFactory.seasonPrompt(for: date, calendar: .gregorianUTC)
 
-        #expect(prompt.question == "Where was this?")
-        #expect(prompt.answer == "Ocean City, MD")
-        #expect(prompt.options.contains("Ocean City, MD"))
+        #expect(prompt.question == "What season was this?")
+        #expect(prompt.answer == "Summer")
+        #expect(prompt.options == ["Spring", "Summer", "Fall", "Winter"] || prompt.options.count == 4)
+        #expect(prompt.options.contains("Summer"))
+    }
+
+    @Test func cityPromptUsesKnownCityAsAnswer() async throws {
+        let prompt = MemoryQuizFactory.cityPrompt(placeName: "Ocean City, MD")
+
+        #expect(prompt.question == "What city were you in?")
+        #expect(prompt.answer == "Ocean City")
+        #expect(prompt.options.contains("Ocean City"))
+        #expect(prompt.options.count == 4)
+    }
+
+    @Test func tripPromptOpensMemoryInsteadOfGradingIt() async throws {
+        let prompt = MemoryQuizFactory.tripPrompt(placeName: "Paris, France")
+
+        #expect(prompt.question == "Was this a trip or close to home?")
+        #expect(prompt.acceptsAnyAnswer)
         #expect(prompt.options.count == 4)
     }
 }
