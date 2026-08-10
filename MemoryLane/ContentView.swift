@@ -193,8 +193,11 @@ private struct SwipeQuizView: View {
     }
 
     private func photoHeight(for availableHeight: CGFloat) -> CGFloat {
-        let fraction = feedback == nil ? 0.56 : 0.50
-        return min(max(availableHeight * fraction, 280), 470)
+        if feedback == nil {
+            return min(max(availableHeight * 0.54, 250), 470)
+        }
+
+        return min(max(availableHeight * 0.36, 210), 340)
     }
 
     private func photoCard(height: CGFloat) -> some View {
