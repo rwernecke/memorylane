@@ -14,7 +14,11 @@ struct MemoryLaneApp: App {
         let schema = Schema([
             Memory.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let modelConfiguration = ModelConfiguration(
+            "MemoryLaneStore",
+            schema: schema,
+            isStoredInMemoryOnly: false
+        )
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
