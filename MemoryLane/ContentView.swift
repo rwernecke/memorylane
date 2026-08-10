@@ -89,11 +89,12 @@ private struct StartExperienceView: View {
 
                 Text("MemoryLane")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.memoryInk)
                     .multilineTextAlignment(.center)
 
                 Text("Swipe through photos with people you love and warm up the stories behind them.")
                     .font(.title3.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.memorySubtleInk)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -121,13 +122,14 @@ private struct LoadingLibraryView: View {
                 .controlSize(.large)
                 .tint(Color.memoryAccent)
 
-            Text("Finding photos with people")
+            Text("Finding memory-rich moments")
                 .font(.title2.weight(.bold))
+                .foregroundStyle(Color.memoryInk)
                 .multilineTextAlignment(.center)
 
-            Text("This stays on your iPhone.")
+            Text("Building a private swipe deck on your iPhone.")
                 .font(.body.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.memorySubtleInk)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -142,11 +144,12 @@ private struct PhotoAccessNeededView: View {
 
             Text("Photos are turned off")
                 .font(.title.bold())
+                .foregroundStyle(Color.memoryInk)
                 .multilineTextAlignment(.center)
 
             Text("MemoryLane needs access to your photo library before it can build your swipe deck.")
                 .font(.title3.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.memorySubtleInk)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -217,18 +220,18 @@ private struct SwipeQuizView: View {
 
             Label("Swipe", systemImage: "hand.draw.fill")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(.white.opacity(0.94))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
-                .background(.black.opacity(0.26), in: Capsule())
+                .background(.black.opacity(0.28), in: Capsule())
                 .padding(14)
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.32), lineWidth: 1)
+                .stroke(.white.opacity(0.42), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.16), radius: 18, x: 0, y: 10)
+        .shadow(color: Color.memoryHotPink.opacity(0.24), radius: 22, x: 0, y: 12)
         .offset(x: dragOffset.width, y: dragOffset.height * 0.08)
         .rotationEffect(.degrees(Double(dragOffset.width / 30)))
         .gesture(
@@ -255,10 +258,18 @@ private struct SwipeQuizView: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(Color.memoryAccent)
                     .frame(width: 34, height: 34)
-                    .background(Color.memoryAccent.opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(
+                        LinearGradient(
+                            colors: [Color.memorySun.opacity(0.26), Color.memoryHotPink.opacity(0.16)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
 
                 Text(prompt.question)
                     .font(.title3.weight(.bold))
+                    .foregroundStyle(Color.memoryInk)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
             }
@@ -289,11 +300,19 @@ private struct SwipeQuizView: View {
             }
         }
         .padding(14)
-        .background(Color.memoryCardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(
+            LinearGradient(
+                colors: [Color.memoryCardBackground, Color.memoryCardWarmth],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(Color.memoryHotPink.opacity(0.22), lineWidth: 1.2)
         }
+        .shadow(color: Color.memoryViolet.opacity(0.12), radius: 18, x: 0, y: 8)
     }
 }
 
@@ -317,11 +336,18 @@ private struct DeckStatusBar: View {
             .accessibilityLabel("Skip photo")
         }
         .font(.headline.weight(.semibold))
-        .foregroundStyle(Color.memoryAccent)
+        .foregroundStyle(Color.memoryInk)
         .padding(.leading, 14)
         .padding(.trailing, 8)
         .padding(.vertical, 8)
-        .background(Color.memoryCardBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(
+            LinearGradient(
+                colors: [Color.memoryCardBackground.opacity(0.96), Color.white.opacity(0.9)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
     }
 }
 
@@ -352,7 +378,14 @@ private struct AnswerOptionButton: View {
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: 58)
-            .background(backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(
+                LinearGradient(
+                    colors: backgroundColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(borderColor, lineWidth: 1.5)
@@ -381,19 +414,25 @@ private struct AnswerOptionButton: View {
     private var foregroundColor: Color {
         if showsWrongIcon { return Color.memoryError }
         if showsCorrectIcon { return Color.memorySuccess }
-        return .primary
+        return Color.memoryInk
     }
 
-    private var backgroundColor: Color {
-        if showsWrongIcon { return Color.memoryError.opacity(0.12) }
-        if showsCorrectIcon { return Color.memorySuccess.opacity(0.14) }
-        return Color.white.opacity(0.72)
+    private var backgroundColors: [Color] {
+        if showsWrongIcon {
+            return [Color.memoryError.opacity(0.16), Color.memoryHotPink.opacity(0.10)]
+        }
+
+        if showsCorrectIcon {
+            return [Color.memorySuccess.opacity(0.18), Color.memoryMint.opacity(0.28)]
+        }
+
+        return [Color.white.opacity(0.98), Color.memoryPeach.opacity(0.94)]
     }
 
     private var borderColor: Color {
-        if showsWrongIcon { return Color.memoryError.opacity(0.7) }
-        if showsCorrectIcon { return Color.memorySuccess.opacity(0.7) }
-        return Color.primary.opacity(0.08)
+        if showsWrongIcon { return Color.memoryError.opacity(0.78) }
+        if showsCorrectIcon { return Color.memorySuccess.opacity(0.78) }
+        return Color.memoryHotPink.opacity(0.18)
     }
 }
 
@@ -408,7 +447,16 @@ private struct FeedbackBanner: View {
             .minimumScaleFactor(0.78)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background((feedback.isCorrect ? Color.memorySuccess : Color.memoryAccent).opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(
+                LinearGradient(
+                    colors: feedback.isCorrect
+                        ? [Color.memorySuccess.opacity(0.14), Color.memoryMint.opacity(0.22)]
+                        : [Color.memoryHotPink.opacity(0.14), Color.memorySun.opacity(0.18)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
     }
 }
 
@@ -422,13 +470,14 @@ private struct FinishedDeckView: View {
                 .font(.system(size: 54, weight: .semibold))
                 .foregroundStyle(Color.memoryAccent)
 
-            Text(reviewedCount == 0 ? "No people photos found" : "That was a good lane")
+            Text(reviewedCount == 0 ? "No memory-rich photos found" : "That was a good lane")
                 .font(.largeTitle.weight(.bold))
+                .foregroundStyle(Color.memoryInk)
                 .multilineTextAlignment(.center)
 
             Text(reviewedCount == 0 ? "Choose more photos or try again after your library finishes syncing." : "Take another pass with a fresh set of faces.")
                 .font(.title3.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.memorySubtleInk)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -702,11 +751,12 @@ private struct UnsupportedPlatformView: View {
 
             Text("MemoryLane is built for iPhone")
                 .font(.title.bold())
+                .foregroundStyle(Color.memoryInk)
                 .multilineTextAlignment(.center)
 
             Text("Run it on an iPhone simulator or device to use the photo swipe deck.")
                 .font(.body.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.memorySubtleInk)
                 .multilineTextAlignment(.center)
         }
         .padding(24)
@@ -717,34 +767,87 @@ private struct UnsupportedPlatformView: View {
 
 private struct MemoryLaneBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.98, green: 0.95, blue: 0.88),
-                Color(red: 0.88, green: 0.94, blue: 0.91),
-                Color(red: 0.90, green: 0.92, blue: 0.98)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color.memorySun,
+                    Color.memorySunsetOrange,
+                    Color.memoryHotPink,
+                    Color.memoryViolet
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [Color.white.opacity(0.50), Color.white.opacity(0.0)],
+                center: .topLeading,
+                startRadius: 20,
+                endRadius: 360
+            )
+
+            RadialGradient(
+                colors: [Color.memoryPeach.opacity(0.60), Color.memoryHotPink.opacity(0.0)],
+                center: .bottomTrailing,
+                startRadius: 20,
+                endRadius: 420
+            )
+        }
         .ignoresSafeArea()
     }
 }
 
 private extension Color {
     static var memoryAccent: Color {
-        Color(red: 0.12, green: 0.42, blue: 0.38)
+        Color(red: 0.96, green: 0.12, blue: 0.45)
+    }
+
+    static var memoryHotPink: Color {
+        Color(red: 0.99, green: 0.09, blue: 0.45)
+    }
+
+    static var memorySunsetOrange: Color {
+        Color(red: 1.00, green: 0.47, blue: 0.18)
+    }
+
+    static var memorySun: Color {
+        Color(red: 1.00, green: 0.78, blue: 0.20)
+    }
+
+    static var memoryViolet: Color {
+        Color(red: 0.43, green: 0.24, blue: 0.92)
+    }
+
+    static var memoryPeach: Color {
+        Color(red: 1.00, green: 0.90, blue: 0.82)
+    }
+
+    static var memoryMint: Color {
+        Color(red: 0.71, green: 0.98, blue: 0.82)
+    }
+
+    static var memoryInk: Color {
+        Color(red: 0.10, green: 0.06, blue: 0.13)
+    }
+
+    static var memorySubtleInk: Color {
+        Color(red: 0.34, green: 0.21, blue: 0.30)
     }
 
     static var memoryCardBackground: Color {
-        Color.white.opacity(0.9)
+        Color(red: 1.00, green: 0.98, blue: 0.95).opacity(0.97)
+    }
+
+    static var memoryCardWarmth: Color {
+        Color(red: 1.00, green: 0.93, blue: 0.87).opacity(0.97)
     }
 
     static var memorySuccess: Color {
-        Color(red: 0.12, green: 0.50, blue: 0.27)
+        Color(red: 0.06, green: 0.54, blue: 0.28)
     }
 
     static var memoryError: Color {
-        Color(red: 0.72, green: 0.22, blue: 0.20)
+        Color(red: 0.82, green: 0.13, blue: 0.27)
     }
 }
 
