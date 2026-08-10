@@ -9,7 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Memory.capturedAt, order: .reverse) private var memories: [Memory]
     @State private var isShowingComposer = false
 
@@ -85,7 +84,7 @@ private struct TodayPromptCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "sparkle.magnifyingglass")
+                Image(systemName: "sparkles")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Color.memoryAccent)
                     .frame(width: 34, height: 34)
@@ -372,7 +371,7 @@ private struct AddMemoryView: View {
                     }
 
                     TextField("Tags", text: $tagsInput, prompt: Text("family, summer, firsts"))
-                        .textInputAutocapitalization(.never)
+                        .memoryTagFieldStyle()
                 }
             }
             .navigationTitle("New Memory")
@@ -381,7 +380,9 @@ private struct AddMemoryView: View {
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: dismiss.callAsFunction)
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: saveMemory)
@@ -441,6 +442,15 @@ private struct MemoryCardModifier: ViewModifier {
 private extension View {
     func memoryCardStyle() -> some View {
         modifier(MemoryCardModifier())
+    }
+
+    @ViewBuilder
+    func memoryTagFieldStyle() -> some View {
+#if os(iOS)
+        textInputAutocapitalization(.never)
+#else
+        self
+#endif
     }
 }
 
