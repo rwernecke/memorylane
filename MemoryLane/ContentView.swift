@@ -8,6 +8,7 @@
 import SwiftUI
 
 #if os(iOS)
+import Combine
 import CoreLocation
 import Photos
 import UIKit
