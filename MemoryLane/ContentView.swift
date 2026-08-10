@@ -53,12 +53,17 @@ private struct PhotoMemoryLaneView: View {
                             streak: deck.streak,
                             submitAnswer: deck.submitAnswer,
                             nextPhoto: deck.nextPhoto,
-                            skipPhoto: deck.skipPhoto
+                            skipPhoto: deck.skipPhoto,
+                            openProAction: deck.openPaywall
                         )
                     } else {
                         FinishedDeckView(
                             reviewedCards: deck.reviewedCards,
-                            reloadAction: { Task { await deck.loadDeck() } }
+                            freeDecksRemaining: deck.freeDecksRemaining,
+                            nextUnlockDate: deck.nextFreeDeckUnlockDate,
+                            canStartDeck: deck.canStartNewDeck,
+                            startNextDeckAction: { Task { await deck.startNextDeck() } },
+                            openProAction: deck.openPaywall
                         )
                     }
                 case .denied, .restricted:
@@ -71,6 +76,15 @@ private struct PhotoMemoryLaneView: View {
         }
         .task {
             await deck.refreshAuthorizationStatus()
+        }
+        .sheet(isPresented: $deck.isShowingPaywall) {
+            ProPaywallPreviewView(
+                nextUnlockDate: deck.nextFreeDeckUnlockDate,
+                freeDecksRemaining: deck.freeDecksRemaining,
+                closeAction: deck.dismissPaywall
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 }
@@ -180,12 +194,18 @@ private struct SwipeQuizView: View {
     let submitAnswer: (String) -> Void
     let nextPhoto: () -> Void
     let skipPhoto: () -> Void
+    let openProAction: () -> Void
     @State private var dragOffset: CGSize = .zero
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 10) {
-                DeckStatusBar(reviewedCount: reviewedCount, streak: streak, skipPhoto: skipPhoto)
+                DeckStatusBar(
+                    reviewedCount: reviewedCount,
+                    streak: streak,
+                    skipPhoto: skipPhoto,
+                    openProAction: openProAction
+                )
                 photoCard(height: photoHeight(for: geometry.size.height))
                 promptPanel
             }
@@ -357,12 +377,14 @@ private struct DeckStatusBar: View {
     let reviewedCount: Int
     let streak: Int
     let skipPhoto: () -> Void
+    let openProAction: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             Label("\(reviewedCount)", systemImage: "photo.stack")
             Spacer()
             Label("\(streak)", systemImage: "bolt.fill")
+            ProOrbButton(action: openProAction)
             Button(action: skipPhoto) {
                 Image(systemName: "forward.fill")
                     .font(.headline.weight(.bold))
@@ -385,6 +407,37 @@ private struct DeckStatusBar: View {
             ),
             in: RoundedRectangle(cornerRadius: 8, style: .continuous)
         )
+    }
+}
+
+private struct ProOrbButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.memoryHotPink, Color.memoryViolet],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                Text("PRO")
+                    .font(.system(size: 7, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.memoryInk, in: Capsule())
+                    .offset(x: 6, y: 4)
+            }
+            .frame(width: 38, height: 36)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Upgrade to Pro")
     }
 }
 
@@ -562,7 +615,11 @@ private struct AutoAdvanceCue: View {
 
 private struct FinishedDeckView: View {
     let reviewedCards: [MemoryPhotoCard]
-    let reloadAction: () -> Void
+    let freeDecksRemaining: Int
+    let nextUnlockDate: Date?
+    let canStartDeck: Bool
+    let startNextDeckAction: () -> Void
+    let openProAction: () -> Void
 
     var body: some View {
         VStack(spacing: 14) {
@@ -572,13 +629,13 @@ private struct FinishedDeckView: View {
                 recapState
             }
 
-            Button(action: reloadAction) {
-                Label(reviewedCards.isEmpty ? "New Deck" : "Review More Memories", systemImage: "shuffle")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 58)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.memoryAccent)
+            DeckAccessFooter(
+                freeDecksRemaining: freeDecksRemaining,
+                nextUnlockDate: nextUnlockDate,
+                canStartDeck: canStartDeck,
+                startNextDeckAction: startNextDeckAction,
+                openProAction: openProAction
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -622,9 +679,94 @@ private struct FinishedDeckView: View {
                         .multilineTextAlignment(.center)
                 }
 
+                MemoryWorkoutCard(reviewedCount: reviewedCards.count)
                 ReviewedPhotoGrid(cards: reviewedCards)
             }
             .padding(.vertical, 10)
+        }
+    }
+}
+
+private struct MemoryWorkoutCard: View {
+    let reviewedCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Your memory workout", systemImage: "brain.head.profile")
+                .font(.headline.weight(.heavy))
+                .foregroundStyle(Color.memoryAccent)
+
+            Text("You practiced recall with people, places, seasons, and story cues across \(reviewedCount) photos.")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Color.memoryInk)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Guided reminiscence is used to support conversation, identity, mood, and memory cues. MemoryLane is not medical care, just a gentle daily ritual.")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Color.memorySubtleInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.memoryCardBackground.opacity(0.88), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.memorySun.opacity(0.32), lineWidth: 1)
+        }
+    }
+}
+
+private struct DeckAccessFooter: View {
+    let freeDecksRemaining: Int
+    let nextUnlockDate: Date?
+    let canStartDeck: Bool
+    let startNextDeckAction: () -> Void
+    let openProAction: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            if canStartDeck {
+                if freeDecksRemaining > 0 {
+                    Text("\(freeDecksRemaining) free starter MemoryLane\(freeDecksRemaining == 1 ? "" : "s") left")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Color.memoryInk)
+                }
+
+                Button(action: startNextDeckAction) {
+                    Label("Review More Memories", systemImage: "shuffle")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 58)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.memoryAccent)
+            } else {
+                VStack(spacing: 8) {
+                    Label("Next free MemoryLane unlocks", systemImage: "timer")
+                        .font(.headline.weight(.heavy))
+                        .foregroundStyle(Color.memoryInk)
+
+                    if let nextUnlockDate {
+                        Text(nextUnlockDate, style: .relative)
+                            .font(.title2.weight(.heavy))
+                            .foregroundStyle(Color.memoryAccent)
+                    } else {
+                        Text("soon")
+                            .font(.title2.weight(.heavy))
+                            .foregroundStyle(Color.memoryAccent)
+                    }
+                }
+                .padding(13)
+                .frame(maxWidth: .infinity)
+                .background(Color.memoryCardBackground.opacity(0.88), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                Button(action: openProAction) {
+                    Label("Upgrade to Pro - $6.99/mo", systemImage: "sparkles")
+                        .font(.headline.weight(.heavy))
+                        .frame(maxWidth: .infinity, minHeight: 58)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.memoryAccent)
+            }
         }
     }
 }
@@ -691,6 +833,105 @@ private struct ReviewedPhotoTile: View {
     }
 }
 
+private struct ProPaywallPreviewView: View {
+    let nextUnlockDate: Date?
+    let freeDecksRemaining: Int
+    let closeAction: () -> Void
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.memoryInk, Color.memoryViolet, Color.memoryHotPink],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                HStack {
+                    Spacer()
+                    Button(action: closeAction) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.78))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
+                }
+
+                VStack(spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 44, weight: .heavy))
+                        .foregroundStyle(Color.memorySun)
+
+                    Text("Unlock unlimited MemoryLanes")
+                        .font(.largeTitle.weight(.heavy))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+
+                    Text("Two starter decks are free. After that, one free deck unlocks every 2 hours.")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.82))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    PaywallFeatureRow(icon: "infinity", title: "Unlimited swipe decks")
+                    PaywallFeatureRow(icon: "photo.stack.fill", title: "Session recaps for every lane")
+                    PaywallFeatureRow(icon: "brain.head.profile", title: "Richer recall prompts over time")
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.white.opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                if freeDecksRemaining == 0, let nextUnlockDate {
+                    Text("Next free lane: \(nextUnlockDate, style: .relative)")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Color.memorySun)
+                }
+
+                Button(action: closeAction) {
+                    VStack(spacing: 2) {
+                        Text("Upgrade to Pro")
+                            .font(.headline.weight(.heavy))
+                        Text("$6.99/month")
+                            .font(.subheadline.weight(.bold))
+                    }
+                    .foregroundStyle(Color.memoryInk)
+                    .frame(maxWidth: .infinity, minHeight: 62)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.memorySun, Color.memoryPeach],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Text("Purchase flow is a preview for now. StoreKit gets connected next.")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .multilineTextAlignment(.center)
+            }
+            .padding(22)
+        }
+    }
+}
+
+private struct PaywallFeatureRow: View {
+    let icon: String
+    let title: String
+
+    var body: some View {
+        Label(title, systemImage: icon)
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.white)
+    }
+}
+
 private struct MemoryPhotoCard: Identifiable {
     let id: String
     let image: UIImage
@@ -714,18 +955,30 @@ private final class PhotoDeckViewModel: ObservableObject {
     @Published var selectedAnswer: String?
     @Published var feedback: QuizFeedback?
     @Published var isLoading = false
+    @Published var isShowingPaywall = false
     @Published var reviewedCount = 0
     @Published var streak = 0
+    @Published private(set) var freeDecksRemaining = 2
+    @Published private(set) var nextFreeDeckUnlockDate: Date?
+    @Published private(set) var completedDeckCount = 0
+
+    private let starterDeckLimit = 2
+    private let deckCooldownSeconds: TimeInterval = 2 * 60 * 60
 
     var currentCard: MemoryPhotoCard? {
         cards.first
     }
 
+    var canStartNewDeck: Bool {
+        freeDecksRemaining > 0 || isFreeDeckUnlocked
+    }
+
     func refreshAuthorizationStatus() async {
         authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        refreshFreeDeckCreditIfNeeded()
 
         if canReadLibrary, cards.isEmpty, reviewedCards.isEmpty, !isLoading {
-            await loadDeck()
+            await startNextDeck()
         }
     }
 
@@ -733,11 +986,30 @@ private final class PhotoDeckViewModel: ObservableObject {
         authorizationStatus = await requestLibraryAccess()
 
         if canReadLibrary {
-            await loadDeck()
+            await startNextDeck()
         }
     }
 
-    func loadDeck() async {
+    func startNextDeck() async {
+        refreshFreeDeckCreditIfNeeded()
+
+        guard canStartNewDeck else {
+            openPaywall()
+            return
+        }
+
+        await loadDeck(consumingFreeCredit: true)
+    }
+
+    func openPaywall() {
+        isShowingPaywall = true
+    }
+
+    func dismissPaywall() {
+        isShowingPaywall = false
+    }
+
+    private func loadDeck(consumingFreeCredit: Bool) async {
         guard !isLoading else { return }
         isLoading = true
         selectedAnswer = nil
@@ -764,6 +1036,10 @@ private final class PhotoDeckViewModel: ObservableObject {
                     placeName: placeName
                 )
             )
+        }
+
+        if consumingFreeCredit, !loadedCards.isEmpty, freeDecksRemaining > 0 {
+            freeDecksRemaining -= 1
         }
 
         cards = loadedCards
@@ -808,6 +1084,17 @@ private final class PhotoDeckViewModel: ObservableObject {
         authorizationStatus == .authorized || authorizationStatus == .limited
     }
 
+    private var isFreeDeckUnlocked: Bool {
+        guard let nextFreeDeckUnlockDate else { return false }
+        return Date() >= nextFreeDeckUnlockDate
+    }
+
+    private func refreshFreeDeckCreditIfNeeded() {
+        guard freeDecksRemaining == 0, isFreeDeckUnlocked else { return }
+        freeDecksRemaining = 1
+        nextFreeDeckUnlockDate = nil
+    }
+
     private func advanceDeck(keepsStreak: Bool) {
         if let card = cards.first {
             reviewedCards.append(card)
@@ -821,6 +1108,25 @@ private final class PhotoDeckViewModel: ObservableObject {
 
         selectedAnswer = nil
         feedback = nil
+
+        if cards.isEmpty, !reviewedCards.isEmpty {
+            finishCurrentDeck()
+        } else {
+            preparePrompt()
+        }
+    }
+
+    private func finishCurrentDeck() {
+        completedDeckCount += 1
+
+        if freeDecksRemaining == 0 {
+            nextFreeDeckUnlockDate = Date().addingTimeInterval(deckCooldownSeconds)
+        }
+
+        if completedDeckCount >= starterDeckLimit {
+            openPaywall()
+        }
+
         preparePrompt()
     }
 
