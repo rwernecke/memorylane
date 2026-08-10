@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 
-enum MemoryMood: String, CaseIterable, Identifiable {
+enum MemoryMood: String, CaseIterable, Identifiable, Hashable {
     case warm
     case joyful
     case grateful
@@ -20,30 +20,30 @@ enum MemoryMood: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .warm:
-            "Warm"
+            return "Warm"
         case .joyful:
-            "Joyful"
+            return "Joyful"
         case .grateful:
-            "Grateful"
+            return "Grateful"
         case .bittersweet:
-            "Bittersweet"
+            return "Bittersweet"
         case .quiet:
-            "Quiet"
+            return "Quiet"
         }
     }
 
     var symbolName: String {
         switch self {
         case .warm:
-            "sun.max.fill"
+            return "sun.max.fill"
         case .joyful:
-            "sparkles"
+            return "sparkles"
         case .grateful:
-            "heart.fill"
+            return "heart.fill"
         case .bittersweet:
-            "moon.stars.fill"
+            return "moon.stars.fill"
         case .quiet:
-            "leaf.fill"
+            return "leaf.fill"
         }
     }
 }
