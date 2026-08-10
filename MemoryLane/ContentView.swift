@@ -724,48 +724,52 @@ private struct DeckAccessFooter: View {
     let openProAction: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
-            if canStartDeck {
-                if freeDecksRemaining > 0 {
-                    Text("\(freeDecksRemaining) free starter MemoryLane\(freeDecksRemaining == 1 ? "" : "s") left")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Color.memoryInk)
-                }
+        TimelineView(.periodic(from: Date(), by: 30)) { timeline in
+            let unlockedByTime = nextUnlockDate.map { timeline.date >= $0 } ?? false
 
-                Button(action: startNextDeckAction) {
-                    Label("Review More Memories", systemImage: "shuffle")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 58)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.memoryAccent)
-            } else {
-                VStack(spacing: 8) {
-                    Label("Next free MemoryLane unlocks", systemImage: "timer")
-                        .font(.headline.weight(.heavy))
-                        .foregroundStyle(Color.memoryInk)
-
-                    if let nextUnlockDate {
-                        Text(nextUnlockDate, style: .relative)
-                            .font(.title2.weight(.heavy))
-                            .foregroundStyle(Color.memoryAccent)
-                    } else {
-                        Text("soon")
-                            .font(.title2.weight(.heavy))
-                            .foregroundStyle(Color.memoryAccent)
+            VStack(spacing: 10) {
+                if canStartDeck || unlockedByTime {
+                    if freeDecksRemaining > 0 {
+                        Text("\(freeDecksRemaining) free starter MemoryLane\(freeDecksRemaining == 1 ? "" : "s") left")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Color.memoryInk)
                     }
-                }
-                .padding(13)
-                .frame(maxWidth: .infinity)
-                .background(Color.memoryCardBackground.opacity(0.88), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-                Button(action: openProAction) {
-                    Label("Upgrade to Pro - $6.99/mo", systemImage: "sparkles")
-                        .font(.headline.weight(.heavy))
-                        .frame(maxWidth: .infinity, minHeight: 58)
+                    Button(action: startNextDeckAction) {
+                        Label("Review More Memories", systemImage: "shuffle")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 58)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.memoryAccent)
+                } else {
+                    VStack(spacing: 8) {
+                        Label("Next free MemoryLane unlocks", systemImage: "timer")
+                            .font(.headline.weight(.heavy))
+                            .foregroundStyle(Color.memoryInk)
+
+                        if let nextUnlockDate {
+                            Text(nextUnlockDate, style: .relative)
+                                .font(.title2.weight(.heavy))
+                                .foregroundStyle(Color.memoryAccent)
+                        } else {
+                            Text("soon")
+                                .font(.title2.weight(.heavy))
+                                .foregroundStyle(Color.memoryAccent)
+                        }
+                    }
+                    .padding(13)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.memoryCardBackground.opacity(0.88), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    Button(action: openProAction) {
+                        Label("Upgrade to Pro - $6.99/mo", systemImage: "sparkles")
+                            .font(.headline.weight(.heavy))
+                            .frame(maxWidth: .infinity, minHeight: 58)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.memoryAccent)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.memoryAccent)
             }
         }
     }
@@ -886,9 +890,12 @@ private struct ProPaywallPreviewView: View {
                 .background(.white.opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 if freeDecksRemaining == 0, let nextUnlockDate {
-                    Text("Next free lane: \(nextUnlockDate, style: .relative)")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(Color.memorySun)
+                    HStack(spacing: 5) {
+                        Text("Next free lane:")
+                        Text(nextUnlockDate, style: .relative)
+                    }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(Color.memorySun)
                 }
 
                 Button(action: closeAction) {
