@@ -35,7 +35,7 @@ struct MemoryQuizPrompt: Identifiable, Equatable {
 
 enum MemoryQuizFactory {
     static func prompt(for date: Date?, placeName: String?, calendar: Calendar = .current) -> MemoryQuizPrompt {
-        if let date, let placeName, !placeName.isEmpty, Bool.random() {
+        if let placeName, !placeName.isEmpty, Bool.random() {
             return placePrompt(placeName: placeName)
         }
 
@@ -43,6 +43,10 @@ enum MemoryQuizFactory {
             return Bool.random()
                 ? yearPrompt(for: date, calendar: calendar)
                 : monthPrompt(for: date, calendar: calendar)
+        }
+
+        if let placeName, !placeName.isEmpty {
+            return placePrompt(placeName: placeName)
         }
 
         return feelingPrompt()
