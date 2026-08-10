@@ -205,15 +205,34 @@ private struct SwipeQuizView: View {
 
     private func photoCard(height: CGFloat) -> some View {
         ZStack(alignment: .bottomTrailing) {
-            Image(uiImage: card.image)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity)
-                .frame(height: height)
-                .clipped()
+            GeometryReader { proxy in
+                ZStack {
+                    Image(uiImage: card.image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                        .blur(radius: 18)
+                        .saturation(1.18)
+                        .opacity(0.68)
+
+                    LinearGradient(
+                        colors: [.black.opacity(0.20), .black.opacity(0.04), .black.opacity(0.24)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+
+                    Image(uiImage: card.image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .shadow(color: .black.opacity(0.22), radius: 10, x: 0, y: 5)
+                }
+            }
+            .frame(height: height)
 
             LinearGradient(
-                colors: [.clear, .black.opacity(0.22)],
+                colors: [.clear, .black.opacity(0.26)],
                 startPoint: .center,
                 endPoint: .bottom
             )
@@ -226,6 +245,7 @@ private struct SwipeQuizView: View {
                 .background(.black.opacity(0.28), in: Capsule())
                 .padding(14)
         }
+        .frame(height: height)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -655,7 +675,7 @@ private final class PhotoDeckViewModel: ObservableObject {
             PHImageManager.default().requestImage(
                 for: asset,
                 targetSize: targetSize,
-                contentMode: .aspectFill,
+                contentMode: .aspectFit,
                 options: options
             ) { image, info in
                 guard !didResume else { return }
