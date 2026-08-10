@@ -12,6 +12,7 @@ import Combine
 import CoreLocation
 import Photos
 import UIKit
+import Vision
 #endif
 
 struct ContentView: View {
@@ -81,7 +82,7 @@ private struct StartExperienceView: View {
             Spacer(minLength: 32)
 
             VStack(spacing: 14) {
-                Image(systemName: "photo.on.rectangle.angled")
+                Image(systemName: "person.crop.rectangle.stack.fill")
                     .font(.system(size: 58, weight: .semibold))
                     .foregroundStyle(Color.memoryAccent)
 
@@ -89,7 +90,7 @@ private struct StartExperienceView: View {
                     .font(.system(size: 44, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
 
-                Text("Swipe through your own photos and warm up the stories behind them.")
+                Text("Swipe through photos with people you love and warm up the stories behind them.")
                     .font(.title3.weight(.medium))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -119,8 +120,9 @@ private struct LoadingLibraryView: View {
                 .controlSize(.large)
                 .tint(Color.memoryAccent)
 
-            Text("Finding a few good photos")
+            Text("Finding photos with people")
                 .font(.title2.weight(.bold))
+                .multilineTextAlignment(.center)
 
             Text("This stays on your iPhone.")
                 .font(.body.weight(.medium))
@@ -177,49 +179,45 @@ private struct SwipeQuizView: View {
     @State private var dragOffset: CGSize = .zero
 
     var body: some View {
-        VStack(spacing: 14) {
-            DeckStatusBar(reviewedCount: reviewedCount, streak: streak)
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
-                    photoCard
-                    promptPanel
-                }
-                .padding(.top, 8)
-                .padding(.bottom, 18)
+        GeometryReader { geometry in
+            VStack(spacing: 10) {
+                DeckStatusBar(reviewedCount: reviewedCount, streak: streak, skipPhoto: skipPhoto)
+                photoCard(height: photoHeight(for: geometry.size.height))
+                promptPanel
             }
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         }
     }
 
-    private var photoCard: some View {
-        ZStack(alignment: .bottomLeading) {
+    private func photoHeight(for availableHeight: CGFloat) -> CGFloat {
+        let fraction = feedback == nil ? 0.56 : 0.50
+        return min(max(availableHeight * fraction, 280), 470)
+    }
+
+    private func photoCard(height: CGFloat) -> some View {
+        ZStack(alignment: .bottomTrailing) {
             Image(uiImage: card.image)
                 .resizable()
                 .scaledToFill()
                 .frame(maxWidth: .infinity)
-                .frame(height: 430)
+                .frame(height: height)
                 .clipped()
 
             LinearGradient(
-                colors: [.black.opacity(0), .black.opacity(0.58)],
+                colors: [.clear, .black.opacity(0.22)],
                 startPoint: .center,
                 endPoint: .bottom
             )
 
-            VStack(alignment: .leading, spacing: 8) {
-                if let date = card.creationDate {
-                    Text(date, format: .dateTime.month(.wide).day().year())
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white)
-                }
-
-                if let placeName = card.placeName {
-                    Label(placeName, systemImage: "mappin.and.ellipse")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.88))
-                }
-            }
-            .padding(18)
+            Label("Swipe", systemImage: "hand.draw.fill")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(0.9))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(.black.opacity(0.26), in: Capsule())
+                .padding(14)
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
@@ -227,8 +225,8 @@ private struct SwipeQuizView: View {
                 .stroke(.white.opacity(0.32), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.16), radius: 18, x: 0, y: 10)
-        .offset(x: dragOffset.width, y: dragOffset.height * 0.12)
-        .rotationEffect(.degrees(Double(dragOffset.width / 28)))
+        .offset(x: dragOffset.width, y: dragOffset.height * 0.08)
+        .rotationEffect(.degrees(Double(dragOffset.width / 30)))
         .gesture(
             DragGesture()
                 .onChanged { value in
@@ -247,20 +245,21 @@ private struct SwipeQuizView: View {
     }
 
     private var promptPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: prompt.symbolName)
-                    .font(.title3.weight(.bold))
+                    .font(.headline.weight(.bold))
                     .foregroundStyle(Color.memoryAccent)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 34, height: 34)
                     .background(Color.memoryAccent.opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 Text(prompt.question)
-                    .font(.title2.weight(.bold))
-                    .minimumScaleFactor(0.8)
+                    .font(.title3.weight(.bold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
             }
 
-            VStack(spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(prompt.options, id: \.self) { option in
                     AnswerOptionButton(
                         option: option,
@@ -277,23 +276,15 @@ private struct SwipeQuizView: View {
                 FeedbackBanner(feedback: feedback)
 
                 Button(action: nextPhoto) {
-                    Label("Next Photo", systemImage: "arrow.right.circle.fill")
+                    Label("Next", systemImage: "arrow.right.circle.fill")
                         .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 58)
+                        .frame(maxWidth: .infinity, minHeight: 50)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.memoryAccent)
-            } else {
-                Button(action: skipPhoto) {
-                    Label("Skip", systemImage: "forward.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 54)
-                }
-                .buttonStyle(.bordered)
-                .tint(Color.memoryAccent)
             }
         }
-        .padding(16)
+        .padding(14)
         .background(Color.memoryCardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -305,18 +296,28 @@ private struct SwipeQuizView: View {
 private struct DeckStatusBar: View {
     let reviewedCount: Int
     let streak: Int
+    let skipPhoto: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
-            Label("\(reviewedCount) seen", systemImage: "photo.stack")
+            Label("\(reviewedCount)", systemImage: "photo.stack")
             Spacer()
-            Label("\(streak) streak", systemImage: "bolt.fill")
+            Label("\(streak)", systemImage: "bolt.fill")
+            Button(action: skipPhoto) {
+                Image(systemName: "forward.fill")
+                    .font(.headline.weight(.bold))
+                    .frame(width: 42, height: 36)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.memoryAccent)
+            .accessibilityLabel("Skip photo")
         }
         .font(.headline.weight(.semibold))
         .foregroundStyle(Color.memoryAccent)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Color.memoryCardBackground.opacity(0.9), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(Color.memoryCardBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -329,12 +330,12 @@ private struct AnswerOptionButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            VStack(spacing: 6) {
                 Text(option)
-                    .font(.title3.weight(.bold))
+                    .font(.headline.weight(.bold))
                     .foregroundStyle(foregroundColor)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .minimumScaleFactor(0.78)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.76)
                     .lineLimit(2)
 
                 if showsCorrectIcon {
@@ -345,8 +346,8 @@ private struct AnswerOptionButton: View {
                         .foregroundStyle(Color.memoryError)
                 }
             }
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 62)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 58)
             .background(backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -397,9 +398,11 @@ private struct FeedbackBanner: View {
 
     var body: some View {
         Label(feedback.message, systemImage: feedback.isCorrect ? "checkmark.seal.fill" : "sparkles")
-            .font(.headline.weight(.semibold))
+            .font(.subheadline.weight(.semibold))
             .foregroundStyle(feedback.isCorrect ? Color.memorySuccess : Color.memoryAccent)
-            .padding(14)
+            .lineLimit(2)
+            .minimumScaleFactor(0.78)
+            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background((feedback.isCorrect ? Color.memorySuccess : Color.memoryAccent).opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
@@ -411,15 +414,15 @@ private struct FinishedDeckView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(systemName: reviewedCount == 0 ? "photo" : "checkmark.seal.fill")
+            Image(systemName: reviewedCount == 0 ? "person.crop.rectangle.stack" : "checkmark.seal.fill")
                 .font(.system(size: 54, weight: .semibold))
                 .foregroundStyle(Color.memoryAccent)
 
-            Text(reviewedCount == 0 ? "No photos found" : "That was a good lane")
+            Text(reviewedCount == 0 ? "No people photos found" : "That was a good lane")
                 .font(.largeTitle.weight(.bold))
                 .multilineTextAlignment(.center)
 
-            Text(reviewedCount == 0 ? "Choose more photos in Settings, then come back." : "Take another pass with a fresh set of photos.")
+            Text(reviewedCount == 0 ? "Choose more photos or try again after your library finishes syncing." : "Take another pass with a fresh set of faces.")
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -487,11 +490,15 @@ private final class PhotoDeckViewModel: ObservableObject {
         feedback = nil
         streak = 0
 
-        let assets = fetchPhotoAssets().shuffled().prefix(18)
+        let assets = fetchPhotoAssets().shuffled()
         var loadedCards: [MemoryPhotoCard] = []
+        loadedCards.reserveCapacity(18)
 
         for asset in assets {
+            guard loadedCards.count < 18 else { break }
             guard let image = await image(for: asset) else { continue }
+            guard await hasFace(in: image) else { continue }
+
             let placeName = await placeName(for: asset.location)
             loadedCards.append(
                 MemoryPhotoCard(
@@ -568,7 +575,7 @@ private final class PhotoDeckViewModel: ObservableObject {
 
     private func fetchPhotoAssets() -> [PHAsset] {
         let options = PHFetchOptions()
-        options.fetchLimit = 300
+        options.fetchLimit = 500
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         let result = PHAsset.fetchAssets(with: .image, options: options)
@@ -617,6 +624,24 @@ private final class PhotoDeckViewModel: ObservableObject {
         }
     }
 
+    private func hasFace(in image: UIImage) async -> Bool {
+        guard let cgImage = image.cgImage else { return false }
+
+        return await withCheckedContinuation { continuation in
+            let request = VNDetectFaceRectanglesRequest { request, _ in
+                let observations = request.results as? [VNFaceObservation]
+                continuation.resume(returning: observations?.isEmpty == false)
+            }
+            let handler = VNImageRequestHandler(cgImage: cgImage, orientation: image.cgImagePropertyOrientation)
+
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(returning: false)
+            }
+        }
+    }
+
     private func placeName(for location: CLLocation?) async -> String? {
         guard let location else { return nil }
 
@@ -634,6 +659,31 @@ private final class PhotoDeckViewModel: ObservableObject {
 
                 continuation.resume(returning: place.isEmpty ? placemark.name : place)
             }
+        }
+    }
+}
+
+private extension UIImage {
+    var cgImagePropertyOrientation: CGImagePropertyOrientation {
+        switch imageOrientation {
+        case .up:
+            return .up
+        case .upMirrored:
+            return .upMirrored
+        case .down:
+            return .down
+        case .downMirrored:
+            return .downMirrored
+        case .left:
+            return .left
+        case .leftMirrored:
+            return .leftMirrored
+        case .right:
+            return .right
+        case .rightMirrored:
+            return .rightMirrored
+        @unknown default:
+            return .up
         }
     }
 }
